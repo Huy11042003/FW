@@ -38,24 +38,25 @@ static dwt_config_t config =
 
 
 
-/* Example application name and version to display on LCD screen. TAG DELAY ²â¾à½»»»ºóµÄÑÓ³ÙÊ±¼ä */
+/* Example application name and version to display on LCD screen. TAG DELAY ï¿½ï¿½à½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½Ê±ï¿½ï¿½ */
 #define RNG_DELAY_MS 5
 	
-/* Default antenna delay values for 64 MHz PRF. See NOTE 1 below. ÌìÏßÑÓ³ÙÊ±¼ä */
+/* Default antenna delay values for 64 MHz PRF. See NOTE 1 below. ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½Ê±ï¿½ï¿½ */
 //#define TX_ANT_DLY 16436
 //#define RX_ANT_DLY 16436
 #define TX_ANT_DLY 0
 #define RX_ANT_DLY 32950
 	
 /* Frames used in the ranging process. See NOTE 2 below. */
-static uint8 rx_poll_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x21, 0, 0};//authorÊÕµ½µÄÏûÏ¢ÌåµÄ±ê×¼¸ñÊ½
-static uint8 tx_resp_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'V', 'E', 'W', 'A', 0x10, 0x02, 0, 0, 0, 0};////author·¢ËÍµÄÏûÏ¢ÌåµÄ±ê×¼¸ñÊ½
+static uint8 rx_poll_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x21, 0, 0};//authorï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ä±ï¿½×¼ï¿½ï¿½Ê½
+static uint8 tx_resp_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'V', 'E', 'W', 'A', 0x10, 0x02, 0, 0, 0, 0};////authorï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ä±ï¿½×¼ï¿½ï¿½Ê½
 static uint8 rx_final_msg[] = {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static uint8 distance_msg[] = {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0xAA, 0, 0,0, 0, 0};
 static uint8 tx_poll_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x21, 0, 0};
 static uint8 rx_resp_msg[] =  {0x41, 0x88, 0, 0x0, 0xDE, 'V', 'E', 'W', 'A', 0x10, 0x02, 0, 0, 0, 0};
 static uint8 tx_final_msg[] = {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static uint8 angle_msg[] =    {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0xFE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static uint8 switch_msg[] =    {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0x21, 0};
 static uint8 Semaphore_Release[] =    {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0xE0, 0, 0, 0};
 static uint8 Tag_Statistics[] =                      {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0xE1, 0, 0, 0};
 static uint8 Master_Release_Semaphore[] =            {0x41, 0x88, 0, 0x0, 0xDE, 'W', 'A', 'V', 'E', 0xE2, 0, 0, 0};
@@ -74,6 +75,7 @@ static uint8 Master_Release_Semaphore_comfirm[] =    {0x41, 0x88, 0, 0x0, 0xDE, 
 #define FINAL_MSG_FINAL_TX_TS_IDX 18
 #define FINAL_MSG_TS_LEN 4
 #define ANGLE_MSG_IDX 10
+#define SWITCH_MSG_IDX 11
 #define LOCATION_FLAG_IDX 11
 #define LOCATION_INFO_LEN_IDX 12
 #define LOCATION_INFO_START_IDX 13
@@ -163,8 +165,8 @@ void USART_puts(uint8_t *s,uint8_t len);
 
 
 //#define ANTHOR
-#define ANCHOR_MAX_NUM 45//3 Ä¬ÈÏÈý¸ö»ùÕ¾
-//uint8_t ANCHOR_IND=0 ;  // 0 1 2 »ùÕ¾ID
+#define ANCHOR_MAX_NUM 45//3 Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¾
+//uint8_t ANCHOR_IND=0 ;  // 0 1 2 ï¿½ï¿½Õ¾ID
 
 //#define ANCHOR_IND ANCHOR_NUM
 

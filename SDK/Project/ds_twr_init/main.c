@@ -62,6 +62,7 @@ extern uint8_t MASTER_TAG;
 extern uint8_t SLAVE_TAG_START_INDEX;
 extern uint8_t ANCHOR_IND; 
 extern uint8_t ANCHOR_IND; 
+uint32_t start_time;
 extern uint8 Semaphore[MAX_SLAVE_TAG];
 
 vec3d AnchorList[ANCHOR_MAX_NUM];
@@ -222,7 +223,17 @@ int Sum_Tag_Semaphore_request(void)
     }
     return sum_request;
 }
-
+void write_float_to_buffer(float value, uint8_t *buffer, size_t index) {
+    // Ensure the buffer is large enough to fit the float value
+    if (index + sizeof(float) <= sizeof(angle_msg)) {
+        memcpy(&buffer[index], &value, sizeof(float));  // Copy the float into the buffer
+    }
+}
+float uint8_to_float(uint8_t *buffer, size_t index) {
+    float value;
+    memcpy(&value, &buffer[index], sizeof(float));  // Copy bytes from buffer to float
+    return value;
+}
 #define MAX_ANCHOR 4
 void Tag_Measure_Dis(void)
 {
@@ -342,13 +353,13 @@ void Tag_Measure_Dis(void)
                         Anthordistance_count[rx_buffer[12]] ++;
                         if(Anthordistance_count[0]>=ANCHOR_REFRESH_COUNT || Anthordistance_count[1]>=ANCHOR_REFRESH_COUNT ||Anthordistance_count[2]>=ANCHOR_REFRESH_COUNT ||Anthordistance_count[3]>=ANCHOR_REFRESH_COUNT)
                         {
-                            distance_mange();
-                            Anthordistance_count[0]= 0 ;
-                            Anthordistance_count[1]= 0 ;
-                            Anthordistance_count[2]= 0 ;
-                            Anthordistance[0] = 0;
-                            Anthordistance[1] = 0;
-                            Anthordistance[2] = 0;
+                            // distance_mange();
+                            // Anthordistance_count[0]= 0 ;
+                            // Anthordistance_count[1]= 0 ;
+                            // Anthordistance_count[2]= 0 ;
+                            // Anthordistance[0] = 0;
+                            // Anthordistance[1] = 0;
+                            // Anthordistance[2] = 0;
                             finish_measure = 1;
                         }
                     }
@@ -418,8 +429,9 @@ double final_distance =  0;
 int main(void)
 {
     uint8 anthor_index = 0;
-    uint8 tag_index = 0;
-
+    uint8 tag_index = 1;
+    int wait = 0, sent = 0;
+    uint8 CURRENT_TAG = 0;
     uint8 Semaphore_Enable = 0 ;
     uint8 Waiting_TAG_Release_Semaphore = 0;
     int8 frame_len = 0;
@@ -555,16 +567,16 @@ if(UserSetNow.ANCHOR_TAG==0)
 
     //OLED_ShowString(0,2,"Distance:"); chnage by johhn
 
-    if(TAG_ID ==  MASTER_TAG)
-    {
-        Semaphore_Enable = 1 ;
-        Semaphore_Init();
-        Waiting_TAG_Release_Semaphore = 0;
-    }
-    else
-    {
+    // if(TAG_ID ==  CURRENT_TAG && TAG_ID != 0)
+    // {
+    //     Semaphore_Enable = 1 ;
+    //     Semaphore_Init();
+    //     Waiting_TAG_Release_Semaphore = 0;
+    // }
+    // else
+    // {
         Semaphore_Enable = 0 ;
-    }
+    // }
 		
     //Master TAG0
 		while(1)
@@ -573,17 +585,21 @@ if(UserSetNow.ANCHOR_TAG==0)
         if(Semaphore_Enable)
         {
             GPIO_ResetBits(GPIOA,GPIO_Pin_3);
-              GPIO_ResetBits(GPIOA,GPIO_Pin_1);
-              GPIO_ResetBits(GPIOA,GPIO_Pin_2);
+            GPIO_ResetBits(GPIOA,GPIO_Pin_1);
+            GPIO_ResetBits(GPIOA,GPIO_Pin_2);
             //send message to anthor,TAG<->ANTHOR
             //OLED_ShowString(0, 2,"Fail");
             
 			//dwt_setrxaftertxdelay(POLL_TX_TO_RESP_RX_DLY_UUS);
 			//dwt_setrxtimeout(RESP_RX_TIMEOUT_UUS);
 						
-            // Tag_Measure_Dis();//measuer distance between tag and all anthor
+            Tag_Measure_Dis();//measuer distance between tag and all anthor
              //OLED_ShowString(0, 2,"PASS");
-             if(finish_measure) Semaphore_Enable = 0;
+             if(finish_measure) 
+            {
+                Semaphore_Enable = 0;
+                
+            }
         //   if(TAG_ID != MASTER_TAG)
         //   {
         //       //send release semaphore to master tag"
@@ -598,33 +614,141 @@ if(UserSetNow.ANCHOR_TAG==0)
         //   }
             
         }
+        else{
 		if(TAG_ID == MASTER_TAG)
           {
-              //send release semaphore to master tag"
-            uint8 len = 0;
-            angle_msg[ALL_MSG_SN_IDX] = frame_seq_nb;
-            angle_msg[ALL_MSG_TAG_IDX] = 1;
-            angle_msg[LOCATION_FLAG_IDX] = 1;
+            if(!wait){
+                dwt_setrxaftertxdelay(POLL_TX_TO_RESP_RX_DLY_UUS);
+                // dwt_setrxtimeout(RESP_RX_TIMEOUT_UUS);
+                //send release semaphore to master tag"
+                // uint8 len = 0;
+                angle_msg[ALL_MSG_SN_IDX] = frame_seq_nb;
+                // angle_msg[ALL_MSG_TAG_IDX] = TAG_ID;
 
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = 'm';
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = 'r';
+                angle_msg[ALL_MSG_TAG_IDX] = tag_index;
+                // if (tag_index > 10) tag_index = 0;
+                // for (int i = 0; i < 12; i++) {
+                //     printf("0x%02X ", angle_msg[i]);  // Prints each byte as hexadecimal
+                // }
+                // printf("\n");
+                dwt_writetxdata(sizeof(angle_msg), angle_msg, 0);
+                dwt_writetxfctrl(sizeof(angle_msg), 0);
+                // if(here) printf("here");
+                if(!sent){
+                    start_time = HAL_GetTick();
+                    sent = 1;
+                }
+                dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
+                while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
+                {};
+                
+                dwt_setrxtimeout(2000000);
+                dwt_rxenable(0);
+                /* Poll for reception of a frame or error/timeout. See NOTE 7 below. */
+                while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
+                { };
+                if (status_reg & SYS_STATUS_RXFCG)
+                {
+                    /* Clear good RX frame event in the DW1000 status register. */
+                    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
 
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = 0x02;
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = 1;//TAG ID
+                    /* A frame has been received, read it into the local buffer. */
+                    frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
+                    if (frame_len <= RX_BUFFER_LEN)
+                    {
+                        dwt_readrxdata(rx_buffer, frame_len, 0);
+                    }
+                    rx_buffer[ALL_MSG_SN_IDX] = 0;
 
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = '\n';
-            angle_msg[LOCATION_INFO_START_IDX + (len++)] = '\r';
-            // for (int i = 0; i < sizeof(angle_msg); i++) {
-            //     printf("0x%02X ", angle_msg[i]);  // Prints each byte as hexadecimal
-            // }
-            // printf("\n");
-              dwt_writetxdata(sizeof(angle_msg), angle_msg, 0);
-              dwt_writetxfctrl(sizeof(angle_msg), 0);
+                    if(rx_buffer[ALL_MSG_TAG_IDX] == tag_index)
+                    {
+                    // for (int i = 0; i < sizeof(rx_buffer); i++) {
+                    //         printf("0x%02X ", rx_buffer[i]);  // Prints each byte as hexadecimal
+                    // }
+                    // printf("\n");
+                        wait = 1;
+                        start_time = HAL_GetTick();
+                        GPIO_SetBits(GPIOA,GPIO_Pin_2);
+                    }
+                }
+                else
+                {
+                    /* Clear RX error events in the DW1000 status register. */
+                    if(HAL_GetTick() - start_time >= 2000){
+                        sent = 0;
+                        tag_index++;
+                        if (tag_index > 3) tag_index = 1;
+                    }
+                    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+                }
+            }else{
+                dwt_setrxtimeout(5000000);
+                dwt_rxenable(0);
+                /* Poll for reception of a frame or error/timeout. See NOTE 7 below. */
+                while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
+                { 
+                    // if (HAL_GetTick() - start_time >= 5000) {  
+                    //     printf("Wait =%d, Timeout for:%d\n", wait, tag_index);
+                    //     wait = 0;  // Reset wait if timeout exceeds
+                    //     // here = 1;
+                    //     break;
+                    // }
+                };
+                if (status_reg & SYS_STATUS_RXFCG)
+                {
+                    /* Clear good RX frame event in the DW1000 status register. */
+                    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
 
-              dwt_starttx(DWT_START_TX_IMMEDIATE );
-              while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
-              {};
-          }else{
+                    /* A frame has been received, read it into the local buffer. */
+                    frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
+                    if (frame_len <= RX_BUFFER_LEN)
+                    {
+                        dwt_readrxdata(rx_buffer, frame_len, 0);
+                    }
+                    rx_buffer[ALL_MSG_SN_IDX] = 0;
+
+                    if(rx_buffer[ANGLE_MSG_IDX] == tag_index)
+                    {
+                        // for (int i = 0; i < sizeof(rx_buffer); i++) {
+                        //     printf("0x%02X ", rx_buffer[i]);  // Prints each byte as hexadecimal
+                        // }
+                        // printf("\n");
+                        if(rx_buffer[ANGLE_MSG_IDX - 1] == 0xFE){
+                            // for (int i = 0; i < sizeof(rx_buffer); i++) {
+                            // printf("0x%02X ", rx_buffer[i]);  // Prints each byte as hexadecimal
+                            // }
+                            // printf("\n");
+                            printf("Tag_ID: %d\n", tag_index);
+                            printf("an0: %3.2f\n", uint8_to_float(rx_buffer, ANGLE_MSG_IDX + 1));
+                            printf("an1: %3.2f\n", uint8_to_float(rx_buffer, ANGLE_MSG_IDX + 5));
+                            printf("an2: %3.2f\n", uint8_to_float(rx_buffer, ANGLE_MSG_IDX + 9));
+                            sent = 0;
+                            tag_index++;
+                            if (tag_index > 3) tag_index = 1;
+                            wait = 0;
+                        }
+
+                        
+                        GPIO_SetBits(GPIOA,GPIO_Pin_2);
+                    }
+                }
+                // else if(status_reg & SYS_STATUS_RXFCG)
+                else 
+                {
+                    /* Clear RX error events in the DW1000 status register. */
+                    if (HAL_GetTick() - start_time >= 5000) {  
+                        printf("Wait =%d, Timeout for:%d\n", wait, tag_index);
+                        sent = 0;
+                        tag_index++;
+                        if (tag_index > 3) tag_index = 1;
+                        wait = 0;  // Reset wait if timeout exceeds
+                        // here = 1;
+                        // break;
+                    }
+                    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+                }
+            }
+          }else if (TAG_ID != CURRENT_TAG){
             dwt_setrxtimeout(0);
             dwt_rxenable(0);
             /* Poll for reception of a frame or error/timeout. See NOTE 7 below. */
@@ -646,40 +770,10 @@ if(UserSetNow.ANCHOR_TAG==0)
 
                 if(rx_buffer[ALL_MSG_TAG_IDX] == TAG_ID)
                 {
-                    for (int i = 0; i < sizeof(rx_buffer); i++) {
-                            printf("0x%02X ", rx_buffer[i]);  // Prints each byte as hexadecimal
-                    }
-                    printf("\n");
-                    // if (memcmp(rx_buffer, Tag_Statistics, ALL_MSG_COMMON_LEN) == 0)
-                    // {
-                    //     //GPIO_SetBits(GPIOA,GPIO_Pin_3);
-                    //     Tag_Statistics_response[ALL_MSG_SN_IDX] = frame_seq_nb;
-                    //     Tag_Statistics_response[ALL_MSG_TAG_IDX] = TAG_ID;
-                    //     dwt_writetxdata(sizeof(Tag_Statistics_response), Tag_Statistics_response, 0);
-                    //     dwt_writetxfctrl(sizeof(Tag_Statistics_response), 0);
+                    CURRENT_TAG = TAG_ID;
+                    Semaphore_Enable = 1;
+                    // NVIC_SystemReset();
 
-                    //     dwt_starttx(DWT_START_TX_IMMEDIATE );
-                    //     //clear tx flag
-                    //     while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
-                    //     { };
-					// 	GPIO_SetBits(GPIOA,GPIO_Pin_2);
-                    // }
-
-                    // if (memcmp(rx_buffer, Master_Release_Semaphore, ALL_MSG_COMMON_LEN) == 0)
-                    // {
-					//     Master_Release_Semaphore_comfirm[ALL_MSG_SN_IDX] = frame_seq_nb;
-                    //     Master_Release_Semaphore_comfirm[ALL_MSG_TAG_IDX] = TAG_ID;
-                    //     dwt_writetxdata(sizeof(Master_Release_Semaphore_comfirm), Master_Release_Semaphore_comfirm, 0);
-                    //     dwt_writetxfctrl(sizeof(Master_Release_Semaphore_comfirm), 0);
-
-                    //     dwt_starttx(DWT_START_TX_IMMEDIATE);
-                    //     //clear tx flag
-                    //     while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
-                    //     { };
-                    //     Semaphore_Enable = 1;
-                    //     GPIO_SetBits(GPIOA,GPIO_Pin_1);
-
-                    // }
                 }
             }
             else
@@ -687,229 +781,47 @@ if(UserSetNow.ANCHOR_TAG==0)
                 /* Clear RX error events in the DW1000 status register. */
                 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
             }
-          }	
-        // if(TAG_ID == MASTER_TAG)//master  tag
-        // {
-        //     //statistics tag
-        //     if(Sum_Tag_Semaphore_request() == 0)
-        //     {
-        //         for(tag_index = 0; tag_index <MAX_SLAVE_TAG; tag_index++)
-        //         {
-        //             Tag_Statistics[ALL_MSG_SN_IDX] = frame_seq_nb;
-        //             Tag_Statistics[ALL_MSG_TAG_IDX] = tag_index;
-        //             dwt_writetxdata(sizeof(Tag_Statistics), Tag_Statistics, 0);
-        //             dwt_writetxfctrl(sizeof(Tag_Statistics), 0);
-        //             dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
+    
+          }else if(finish_measure){
+                angle_msg[ALL_MSG_SN_IDX] = frame_seq_nb;
+                angle_msg[ALL_MSG_TAG_IDX] = 0;
+                angle_msg[ANGLE_MSG_IDX] = TAG_ID;
+                // printf("an0:%3.2fm\r\n", (float)Anthordistance[0]/1000/Anthordistance_count[0]);
 
-        //             while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
-        //             { };
+                // printf("an1:%3.2fm\r\n", (float)Anthordistance[1]/1000/Anthordistance_count[1]);
 
-        //             if (status_reg & SYS_STATUS_RXFCG)
-        //             {
-        //                 /* Clear good RX frame event and TX frame sent in the DW1000 status register. */
-        //                 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG | SYS_STATUS_TXFRS);
-        //                 /* A frame has been received, read it into the local buffer. */
-        //                 frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFLEN_MASK;
-        //                 if (frame_len <= RX_BUF_LEN)
-        //                 {
-        //                     dwt_readrxdata(rx_buffer, frame_len, 0);
-        //                 }
-        //                 rx_buffer[ALL_MSG_SN_IDX] = 0;
-						
-        //                 if(rx_buffer[ALL_MSG_TAG_IDX] == tag_index)
-        //                 {
-        //                     uint8 temp = rx_buffer[ALL_MSG_TAG_IDX] ;
-		// 					rx_buffer[ALL_MSG_TAG_IDX] =0;
-        //                     if (memcmp(rx_buffer, Tag_Statistics_response, ALL_MSG_COMMON_LEN) == 0)
-        //                     {
-        //                         Semaphore[temp] = 1;
+                // printf("an2:%3.2fm\r\n", (float)Anthordistance[2]/1000/Anthordistance_count[2]);
 
-        //                        GPIO_SetBits(GPIOA,GPIO_Pin_2);
-        //                     }
-        //                 }
-        //             }
-        //             else
-        //             {
-        //                 /* Clear RX error events in the DW1000 status register. */
-        //                 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        //                 //GPIO_SetBits(GPIOA,GPIO_Pin_1);
-        //             }
-        //         }
-        //     }
-        //     //pick one tag ,send Semaphore message
-        //     //release to specific tag(TAG ID)
-        //     //master tag send release signal,and the specific tag send comfirm message
-        //     if(Waiting_TAG_Release_Semaphore == 0 && Sum_Tag_Semaphore_request() != 0)
-        //     {
-        //   		Semaphore[0] = 0;
-        //         for(tag_index = 0; tag_index <MAX_SLAVE_TAG; tag_index++)
-        //         {
-        //             if(Semaphore[tag_index] == 1)
-        //             {
-        //                // dwt_setrxtimeout(0);
-        //                 Master_Release_Semaphore[ALL_MSG_SN_IDX] = frame_seq_nb;
-        //                 Master_Release_Semaphore[ALL_MSG_TAG_IDX] = tag_index;
-        //                 dwt_writetxdata(sizeof(Master_Release_Semaphore), Master_Release_Semaphore, 0);
-        //                 dwt_writetxfctrl(sizeof(Master_Release_Semaphore), 0);
-        //                 dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
-						
-		// 				dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG | SYS_STATUS_TXFRS);
+                write_float_to_buffer((float)Anthordistance[0]/1000/Anthordistance_count[0], angle_msg, ANGLE_MSG_IDX + 1);
 
-        //                 while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
-        //                 { };
-						
+                write_float_to_buffer((float)Anthordistance[1]/1000/Anthordistance_count[1], angle_msg, ANGLE_MSG_IDX + 5);
 
-        //                 if (status_reg & SYS_STATUS_RXFCG)
-        //                 {
-
-		// 				    GPIO_SetBits(GPIOA,GPIO_Pin_1);
-        //                     dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG | SYS_STATUS_TXFRS);
-        //                     frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFLEN_MASK;
-        //                     if (frame_len <= RX_BUF_LEN)
-        //                     {
-        //                         dwt_readrxdata(rx_buffer, frame_len, 0);
-        //                     }
-        //                     rx_buffer[ALL_MSG_SN_IDX] = 0;
-							
-        //                     if(rx_buffer[ALL_MSG_TAG_IDX] == tag_index)
-        //                     {
-        //                         rx_buffer[ALL_MSG_TAG_IDX] = 0; GPIO_SetBits(GPIOA,GPIO_Pin_3);
-		// 						//USART_puts(rx_buffer,frame_len);
-        //                         if (memcmp(rx_buffer, Master_Release_Semaphore_comfirm, ALL_MSG_COMMON_LEN) == 0)
-        //                         {
-        //                             //if the tag recive a semaphore, wait release remaphore
-        //                             Waiting_TAG_Release_Semaphore ++;                                   
-        //                             continue;//only release one semphore once
-        //                         }
-        //                     }
-							
-
-        //                 }
-        //                 else//the tag may leave net,clear semaphore
-        //                 {
-        //                     Semaphore[tag_index] = 0 ;
-        //                     //GPIO_SetBits(GPIOA,GPIO_Pin_1);
-        //                     //if(Waiting_TAG_Release_Semaphore != 0 )
-        //                     //      Waiting_TAG_Release_Semaphore --;
-        //                     /* Clear RX error events in the DW1000 status register. */
-		// 					//sprintf(dist_str, "%08x",status_reg);
-   		// 					//OLED_ShowString(0, 2," 		   "); OLED_ShowString(0, 2,dist_str);
-        //                     dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        //                 }
-        //             }
-        //         }
-        //     }
-
-        //     if(Waiting_TAG_Release_Semaphore == 0 )
-        //     {
-        //         // GPIO_SetBits(GPIOA,GPIO_Pin_2);GPIO_SetBits(GPIOA,GPIO_Pin_1);
-        //     }
-        //     //Master tag waitting for specific tag Semaphore Release message
-        //     if( Waiting_TAG_Release_Semaphore >0)
-        //     {
-        //         dwt_setrxtimeout(10000);//about 10ms
-        //         dwt_rxenable(0);
-        //         // GPIO_SetBits(GPIOA,GPIO_Pin_2);GPIO_SetBits(GPIOA,GPIO_Pin_1);
-        //         while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
-        //         { };
-
-        //         if (status_reg & SYS_STATUS_RXFCG)
-        //         {
-        //             dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-        //             frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
-        //             if (frame_len <= RX_BUFFER_LEN)
-        //             {
-        //                 dwt_readrxdata(rx_buffer, frame_len, 0);
-        //             }
-        //             if (memcmp(rx_buffer, Semaphore_Release, ALL_MSG_COMMON_LEN) == 0)
-        //             {
-        //                 if(Semaphore[Semaphore_Release[ALL_MSG_TAG_IDX]] == 1)
-        //                 {
-        //                     Semaphore[Semaphore_Release[ALL_MSG_TAG_IDX]] = 0 ;
-        //                     Waiting_TAG_Release_Semaphore --;
-        //                 }
-        //             }
-        //         }
-        //         else
-        //         {
-        //         	//maybe the tag leave network
-        //             Waiting_TAG_Release_Semaphore--;
-		// 			/* Clear RX error events in the DW1000 status register. */					
-        //             dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        //         }
-        //     }
-        //     //????????????TAG???Semaphore �????�???????????Master TAG??????Semaphore????????????????????h??????????�?????TAG ???Semaphore???????????
-        //     //if all tag have serviced by  master tag
-        //     //master tag can measure the distance
-        //     if(Sum_Tag_Semaphore_request() == 0)
-        //     {
-        //         Semaphore_Enable = 1 ;
-        //     }
-        // }
-        // else  //slave tags
-        // {
-        //     // OLED_ShowString(0,0,"Slave TAG:");
-        //     dwt_setrxtimeout(0);
-        //     dwt_rxenable(0);
-
-        //     /* Poll for reception of a frame or error/timeout. See NOTE 7 below. */
-        //     while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG | SYS_STATUS_ALL_RX_ERR)))
-        //     { };
-
-        //     if (status_reg & SYS_STATUS_RXFCG)
-        //     {
-        //         /* Clear good RX frame event in the DW1000 status register. */
-        //         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-
-        //         /* A frame has been received, read it into the local buffer. */
-        //         frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
-        //         if (frame_len <= RX_BUFFER_LEN)
-        //         {
-        //             dwt_readrxdata(rx_buffer, frame_len, 0);
-        //         }
-        //         rx_buffer[ALL_MSG_SN_IDX] = 0;
-
-        //         if(rx_buffer[ALL_MSG_TAG_IDX] == TAG_ID)
-        //         {
-        //             rx_buffer[ALL_MSG_TAG_IDX] = 0;
-        //             if (memcmp(rx_buffer, Tag_Statistics, ALL_MSG_COMMON_LEN) == 0)
-        //             {
-        //                 //GPIO_SetBits(GPIOA,GPIO_Pin_3);
-        //                 Tag_Statistics_response[ALL_MSG_SN_IDX] = frame_seq_nb;
-        //                 Tag_Statistics_response[ALL_MSG_TAG_IDX] = TAG_ID;
-        //                 dwt_writetxdata(sizeof(Tag_Statistics_response), Tag_Statistics_response, 0);
-        //                 dwt_writetxfctrl(sizeof(Tag_Statistics_response), 0);
-
-        //                 dwt_starttx(DWT_START_TX_IMMEDIATE );
-        //                 //clear tx flag
-        //                 while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
-        //                 { };
-		// 				GPIO_SetBits(GPIOA,GPIO_Pin_2);
-        //             }
-
-        //             if (memcmp(rx_buffer, Master_Release_Semaphore, ALL_MSG_COMMON_LEN) == 0)
-        //             {
-		// 			    Master_Release_Semaphore_comfirm[ALL_MSG_SN_IDX] = frame_seq_nb;
-        //                 Master_Release_Semaphore_comfirm[ALL_MSG_TAG_IDX] = TAG_ID;
-        //                 dwt_writetxdata(sizeof(Master_Release_Semaphore_comfirm), Master_Release_Semaphore_comfirm, 0);
-        //                 dwt_writetxfctrl(sizeof(Master_Release_Semaphore_comfirm), 0);
-
-        //                 dwt_starttx(DWT_START_TX_IMMEDIATE);
-        //                 //clear tx flag
-        //                 while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
-        //                 { };
-        //                 Semaphore_Enable = 1;
-        //                 GPIO_SetBits(GPIOA,GPIO_Pin_1);
-
-        //             }
-        //         }
-        //     }
-        //     else
-        //     {
-        //         /* Clear RX error events in the DW1000 status register. */
-        //         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        //     }
-        // }
+                write_float_to_buffer((float)Anthordistance[2]/1000/Anthordistance_count[2], angle_msg, ANGLE_MSG_IDX + 9);
+                // for (int i = 0; i < sizeof(angle_msg); i++) {
+                //     printf("0x%02X ", angle_msg[i]);  // Prints each byte as hexadecimal
+                // }
+                // printf("\n");
+                dwt_writetxdata(sizeof(angle_msg), angle_msg, 0);
+                dwt_writetxfctrl(sizeof(angle_msg), 0);
+                dwt_starttx(DWT_START_TX_IMMEDIATE );
+                //clear tx flag
+                while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
+                { };
+                GPIO_SetBits(GPIOA,GPIO_Pin_2);
+                rx_buffer[SWITCH_MSG_IDX] = 0;
+                Anthordistance_count[0]= 0 ;
+                Anthordistance_count[1]= 0 ;
+                Anthordistance_count[2]= 0 ;
+                Anthordistance[0] = 0;
+                Anthordistance[1] = 0;
+                Anthordistance[2] = 0;
+                finish_measure = 0;
+                CURRENT_TAG = 0;
+                NVIC_SystemReset();
+        }
+  
+        frame_seq_nb++;
+        }
     }
   
 

@@ -21,40 +21,52 @@ Target DLL:      Segger\JL2CM3.dll V2.99.45.0
 Dialog DLL:      TCM.DLL V1.56.6.0
  
 <h2>Project:</h2>
-\\Mac\Home\Downloads\firmware\SDK\Project\ds_twr_init\MDK-ARM\Project.uvprojx
-Project File Date:  03/14/2025
+Z:\Desktop\firmware\FW\SDK\Project\ds_twr_init\MDK-ARM\Project.uvprojx
+Project File Date:  03/22/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'C:\Users\phamquanghuy\AppData\Local\Keil_v5\ARM\ARMcc\Bin'
 Build target 'ds_twr_init'
 compiling main.c...
-..\main.c(94): warning:  #177-D: variable "buff"  was declared but never referenced
+..\main.c(95): warning:  #177-D: variable "buff"  was declared but never referenced
       uint8 buff[5];
-..\main.c(96): warning:  #550-D: variable "cnt"  was set but never used
+..\main.c(97): warning:  #550-D: variable "cnt"  was set but never used
       int cnt ;
-..\main.c(488): warning:  #223-D: function "FLASH_ReadMoreData" declared implicitly
+..\main.c(500): warning:  #223-D: function "FLASH_ReadMoreData" declared implicitly
   	FLASH_ReadMoreData(USER_FLASH_BASE,buff,3);
-..\main.c(506): warning:  #186-D: pointless comparison of unsigned integer with zero
+..\main.c(518): warning:  #186-D: pointless comparison of unsigned integer with zero
   	if(buff[1]>=0 && buff[1]<=255)
-..\main.c(531): warning:  #186-D: pointless comparison of unsigned integer with zero
+..\main.c(543): warning:  #186-D: pointless comparison of unsigned integer with zero
   	if(buff[1]>=0 && buff[1]<=255)
-..\main.c(420): warning:  #177-D: variable "anthor_index"  was declared but never referenced
+..\main.c(638): warning:  #223-D: function "HAL_GetTick" declared implicitly
+                      start_time = HAL_GetTick();
+..\main.c(645): warning:  #69-D: integer conversion resulted in truncation
+                  dwt_setrxtimeout(2000000);
+..\main.c(670): warning:  #223-D: function "HAL_GetTick" declared implicitly
+                          start_time = HAL_GetTick();
+..\main.c(677): warning:  #223-D: function "HAL_GetTick" declared implicitly
+                      if(HAL_GetTick() - start_time >= 2000){
+..\main.c(685): warning:  #69-D: integer conversion resulted in truncation
+                  dwt_setrxtimeout(5000000);
+..\main.c(739): warning:  #223-D: function "HAL_GetTick" declared implicitly
+                      if (HAL_GetTick() - start_time >= 5000) {  
+..\main.c(431): warning:  #177-D: variable "anthor_index"  was declared but never referenced
       uint8 anthor_index = 0;
-..\main.c(421): warning:  #177-D: variable "tag_index"  was declared but never referenced
-      uint8 tag_index = 0;
-..\main.c(424): warning:  #550-D: variable "Waiting_TAG_Release_Semaphore"  was set but never used
+..\main.c(436): warning:  #177-D: variable "Waiting_TAG_Release_Semaphore"  was declared but never referenced
       uint8 Waiting_TAG_Release_Semaphore = 0;
-..\main.c(483): warning:  #177-D: variable "rx_ant_delay"  was declared but never referenced
+..\main.c(495): warning:  #177-D: variable "rx_ant_delay"  was declared but never referenced
       int rx_ant_delay =32880;
-..\main.c(484): warning:  #177-D: variable "index"  was declared but never referenced
+..\main.c(496): warning:  #177-D: variable "index"  was declared but never referenced
       int index = 0 ;
-..\main.c(989): warning:  #177-D: function "compute_angle_send_to_anthor0"  was declared but never referenced
+..\main.c(900): warning:  #177-D: function "compute_angle_send_to_anthor0"  was declared but never referenced
   static void compute_angle_send_to_anthor0(int distance1, int distance2,int distance3)
-..\main.c: 11 warnings, 0 errors
+..\main.c(865): warning:  #177-D: function "distance_mange"  was declared but never referenced
+  static void distance_mange(void)
+..\main.c: 17 warnings, 0 errors
 linking...
-Program Size: Code=21640 RO-data=3216 RW-data=1068 ZI-data=3244  
+Program Size: Code=23072 RO-data=3216 RW-data=1076 ZI-data=3244  
 FromELF: creating hex file...
-".\STM3210E-EVAL\STM3210E-EVAL.axf" - 0 Error(s), 11 Warning(s).
+".\STM3210E-EVAL\STM3210E-EVAL.axf" - 0 Error(s), 17 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -77,7 +89,7 @@ Package Vendor: Keil
 <h2>Collection of Component Files used:</h2>
 
    * Component: ARM::CMSIS:CORE@6.1.0
-Build Time Elapsed:  00:00:02
+Build Time Elapsed:  00:00:03
 </pre>
 </body>
 </html>
